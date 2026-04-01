@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Settings {
+  id            Int    @id @default(1)
+  iMessagePhone String @default("")
+  emailAddress  String @default("")
+  morningTime   String @default("06:30")
+  middayTime    String @default("12:30")
+  eveningTime   String @default("20:30")
+  timezone      String @default("America/Chicago")
+  macLocalIp    String @default("")
+}
+
+model WeeklyGoal {
+  id            Int      @id @default(autoincrement())
+  goalSessionId Int
+  text          String
+  priority      String   @default("MEDIUM")
+  weekStart     DateTime
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  goalSession   GoalSession @relation(fields: [goalSessionId], references: [id])
+  tasks         Task[]
+}
+
+model DailyPlan {
+  id             Int      @id @default(autoincrement())
+  date           DateTime @unique
+  quote          String
+  weatherSummary String
+  markdownPath   String
+  streakCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  tasks          Task[]
+}
+
+model Task {
+  id           Int      @id @default(autoincrement())
+  dailyPlanId  Int
+  weeklyGoalId Int?
+  text         String
+  urgency      String   @default("MEDIUM")
+  completed    Boolean  @default(false)
+  rolledOver   Boolean  @default(false)
+  rolledDays   Int      @default(0)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  dailyPlan    DailyPlan  @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+  weeklyGoal   WeeklyGoal? @relation(fields: [weeklyGoalId], references: [id])
+}
+
+model RecurringEvent {
+  id         Int      @id @default(autoincrement())
+  title      String
+  daysOfWeek String
+  startTime  String
+  endTime    String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model GoalSession {
+  id           Int      @id @default(autoincrement())
+  initialInput String
+  questions    String   @default("[]")
+  status       String   @default("IN_PROGRESS")
+  createdAt    DateTime @default(now())
+  weeklyGoals  WeeklyGoal[]
+}
+
+model WeeklyReflection {
+  id             Int      @id @default(autoincrement())
+  weekStart      DateTime @unique
+  tasksCompleted Int
+  tasksTotal     Int
+  goalsBreakdown String   @default("[]")
+  carryForward   String   @default("[]")
+  summary        String
+  createdAt      DateTime @default(now())
+}
+
+model QuoteLog {
+  id        Int      @id @default(autoincrement())
+  quoteText String
+  usedOn    DateTime
+}
