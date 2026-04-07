@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getOpenAI } from "@/lib/openai";
 
 export async function POST(req: NextRequest) {
   const { input } = await req.json();
   const isVoice = req.headers.get("accept") === "text/plain";
+  const openai = getOpenAI();
 
   const existingGoals = await prisma.weeklyGoal.findMany({
     where: { active: true },

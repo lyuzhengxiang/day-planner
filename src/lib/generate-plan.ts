@@ -1,16 +1,26 @@
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getOpenAI } from "@/lib/openai";
 import { fetchWeather } from "@/lib/weather";
 import { pickQuote } from "@/lib/quotes";
 import { calculateStreak } from "@/lib/streak";
 import { exportDayMarkdown } from "@/lib/markdown";
 import { notify } from "@/lib/notifications";
 import { startOfDay } from "date-fns";
+import { buildAppUrl, getEventsForDate } from "@/lib/planner";
 
 export async function generateDailyPlan() {
   const today = startOfDay(new Date());
+  const openai = getOpenAI();
 
-  const [weather, quote, streak, weeklyGoals, recurringEvents, rolledTasks] =
+  const [
+    weather,
+    quote,
+    streak,
+    weeklyGoals,
+    recurringEvents,
+    rolledTasks,
+    settings,
+  ] =
     await Promise.all([
       fetchWeather(),
       pickQuote(),
@@ -24,12 +34,10 @@ export async function generateDailyPlan() {
         },
         orderBy: { rolledDays: "desc" },
       }),
+      prisma.settings.findUnique({ where: { id: 1 } }),
     ]);
 
-  const dayOfWeek = today.getDay();
-  const todaysEvents = recurringEvents.filter((e) =>
-    e.daysOfWeek.split(",").map(Number).includes(dayOfWeek)
-  );
+  const todaysEvents = getEventsForDate(recurringEvents, today);
 
   const goalsText = weeklyGoals
     .map((g) => `- [${g.priority}] ${g.text} (id: ${g.id})`)
@@ -176,7 +184,8 @@ Respond with ONLY valid JSON:
     )
     .join("\n");
 
-  const message = `Good morning! Here's your plan for today:\n\n"${quote}"\n\n${taskSummary}\n\nWeather: Chicago ${weather}\nStreak: ${streak} days\n\nOpen: http://localhost:3000`;
+  const appUrl = buildAppUrl(settings?.macLocalIp ?? "", settings?.appPort ?? "3000");
+  const message = `Good morning! Here's your plan for today:\n\n"${quote}"\n\n${taskSummary}\n\nWeather: Chicago ${weather}\nStreak: ${streak} days\n\nOpen: ${appUrl}`;
 
   await notify(message, "Your Day Plan");
 

@@ -1,16 +1,36 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+
+export function buildIMessageArgs(phone: string, message: string): string[] {
+  return [
+    "-e",
+    "on run argv",
+    "-e",
+    "set targetBuddy to item 1 of argv as text",
+    "-e",
+    "set outgoingMessage to item 2 of argv as text",
+    "-e",
+    'tell application "Messages"',
+    "-e",
+    'set targetService to 1st account whose service type = iMessage',
+    "-e",
+    "send outgoingMessage to buddy targetBuddy of targetService",
+    "-e",
+    "end tell",
+    "-e",
+    "end run",
+    phone,
+    message,
+  ];
+}
 
 export function sendIMessage(
   phone: string,
   message: string
 ): Promise<boolean> {
   return new Promise((resolve) => {
-    const escaped = message.replace(/"/g, '\\"');
-    const script = `osascript -e 'tell application "Messages" to send "${escaped}" to buddy "${phone}" of (1st account whose service type = iMessage)'`;
-
-    exec(script, (err) => {
+    execFile("osascript", buildIMessageArgs(phone, message), (err) => {
       if (err) {
         console.error("iMessage failed:", err.message);
         resolve(false);

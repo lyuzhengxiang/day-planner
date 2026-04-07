@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getOpenAI } from "@/lib/openai";
 
 interface Question {
   question: string;
@@ -11,6 +11,7 @@ interface Question {
 export async function POST(req: NextRequest) {
   const { sessionId, answer } = await req.json();
   const isVoice = req.headers.get("accept") === "text/plain";
+  const openai = getOpenAI();
 
   const session = await prisma.goalSession.findUnique({
     where: { id: sessionId },

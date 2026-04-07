@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { reloadCron } from "@/lib/cron";
+import { getPortFromHost } from "@/lib/planner";
 import { networkInterfaces } from "os";
 
 function getLocalIp(): string {
@@ -14,7 +16,7 @@ function getLocalIp(): string {
   return "localhost";
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   let settings = await prisma.settings.findUnique({ where: { id: 1 } });
 
   if (!settings) {
@@ -22,10 +24,15 @@ export async function GET() {
   }
 
   const localIp = getLocalIp();
-  if (settings.macLocalIp !== localIp) {
+  const appPort = getPortFromHost(req.headers.get("host"));
+
+  if (settings.macLocalIp !== localIp || settings.appPort !== appPort) {
     settings = await prisma.settings.update({
       where: { id: 1 },
-      data: { macLocalIp: localIp },
+      data: {
+        macLocalIp: localIp,
+        appPort,
+      },
     });
   }
 
@@ -34,6 +41,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   const data = await req.json();
+  const appPort = getPortFromHost(req.headers.get("host"));
 
   const settings = await prisma.settings.update({
     where: { id: 1 },
@@ -48,8 +56,11 @@ export async function PUT(req: NextRequest) {
       ...(data.middayTime !== undefined && { middayTime: data.middayTime }),
       ...(data.eveningTime !== undefined && { eveningTime: data.eveningTime }),
       ...(data.timezone !== undefined && { timezone: data.timezone }),
+      appPort,
     },
   });
+
+  await reloadCron();
 
   return NextResponse.json(settings);
 }

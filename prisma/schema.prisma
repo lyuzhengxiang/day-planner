@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 model Settings {
@@ -16,6 +16,7 @@ model Settings {
   eveningTime   String @default("20:30")
   timezone      String @default("America/Chicago")
   macLocalIp    String @default("")
+  appPort       String @default("3000")
 }
 
 model WeeklyGoal {

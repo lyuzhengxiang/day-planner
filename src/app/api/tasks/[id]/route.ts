@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exportDayMarkdown } from "@/lib/markdown";
+import { getEventsForDate } from "@/lib/planner";
 
 async function reExportMarkdown(dailyPlanId: number) {
   const plan = await prisma.dailyPlan.findUnique({
@@ -12,10 +13,7 @@ async function reExportMarkdown(dailyPlanId: number) {
   const events = await prisma.recurringEvent.findMany({
     where: { active: true },
   });
-  const dayOfWeek = plan.date.getDay();
-  const todaysEvents = events.filter((e) =>
-    e.daysOfWeek.split(",").map(Number).includes(dayOfWeek)
-  );
+  const todaysEvents = getEventsForDate(events, plan.date);
 
   exportDayMarkdown({
     date: plan.date,
