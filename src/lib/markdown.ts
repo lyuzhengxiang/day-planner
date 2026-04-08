@@ -66,11 +66,24 @@ export function exportDayMarkdown(
 ): string {
   const dateStr = format(data.date, "yyyy-MM-dd");
   const dir = path.join(projectRoot, "days");
-  mkdirSync(dir, { recursive: true });
-
-  const filePath = path.join(dir, `${dateStr}.md`);
   const content = generateMarkdown(data);
-  writeFileSync(filePath, content, "utf-8");
+  const filePath = path.join(dir, `${dateStr}.md`);
+
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(filePath, content, "utf-8");
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String(error.code)
+        : "";
+
+    // Vercel deployments run from a read-only filesystem. Keep the app usable
+    // by returning a stable logical path even when the markdown export is skipped.
+    if (code !== "EROFS" && code !== "EPERM") {
+      throw error;
+    }
+  }
 
   return filePath;
 }
