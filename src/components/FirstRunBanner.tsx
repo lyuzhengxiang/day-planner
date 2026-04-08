@@ -10,7 +10,7 @@ export default function FirstRunBanner({ show }: FirstRunBannerProps) {
   return (
     <div className="border border-gray-800 rounded px-4 py-3 mb-6">
       <p className="text-sm text-gray-400">
-        Welcome! Set up your phone number and email to receive notifications.
+        Welcome! Set up your email to receive scheduled plan and review notifications.
       </p>
       <Link
         href="/settings"

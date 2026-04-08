@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import RecurringManager from "@/components/RecurringManager";
 import SettingsForm from "@/components/SettingsForm";
+import { getAppBaseUrl } from "@/lib/app-config";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
@@ -25,12 +26,12 @@ export default async function SettingsPage() {
         </p>
         <h1 className="mt-3 text-3xl text-gray-100">Delivery and timing</h1>
         <p className="mt-3 text-sm leading-7 text-gray-400">
-          Notification delivery stays local-first: iMessage on your Mac, email
-          as fallback, and a local network URL for Siri Shortcuts.
+          This deployed version sends reminders by email and expects an
+          external scheduler to call the cron endpoints at the times you choose.
         </p>
 
         <div className="mt-6">
-          <SettingsForm initial={settings} />
+          <SettingsForm initial={settings} appBaseUrl={getAppBaseUrl()} />
         </div>
       </section>
 
@@ -41,7 +42,8 @@ export default async function SettingsPage() {
         <h2 className="mt-3 text-2xl text-gray-100">Recurring events</h2>
         <p className="mt-3 text-sm leading-7 text-gray-400">
           These blocks are injected into the daily planner so generated tasks
-          land around the parts of the day you cannot move.
+          land around the parts of the day you cannot move, whether the app is
+          running locally or deployed.
         </p>
 
         <div className="mt-6">

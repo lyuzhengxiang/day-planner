@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Day Planner
 
-## Getting Started
+Day Planner is a multi-page Next.js app for weekly goals, generated daily plans, recurring constraints, weather-aware voice summaries, and weekly review. This branch targets a hosted deployment: PostgreSQL for persistence, email delivery through Resend, and authenticated cron endpoints for an external scheduler.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 App Router
+- React 19
+- Tailwind CSS 4
+- Prisma 6
+- PostgreSQL
+- OpenAI
+- WeatherAPI
+- Resend
+
+## Main Routes
+
+- `/`
+  Today view with the generated plan, recurring events, streak, weather, and task list
+- `/week`
+  Weekly goal management and AI-assisted goal setup
+- `/history`
+  Past plans and completion summaries
+- `/history/[date]`
+  Read-only day detail
+- `/review`
+  Weekly reflection and carry-forward view
+- `/settings`
+  Reminder schedule, timezone, recurring events, and cron endpoint reference
+
+## Required Environment Variables
+
+Copy `.env.example` and fill in:
+
+```bash
+DATABASE_URL="postgresql://..."
+APP_BASE_URL="https://your-app.vercel.app"
+CRON_SECRET="replace-with-a-long-random-string"
+OPENAI_API_KEY="..."
+WEATHER_API_KEY="..."
+RESEND_API_KEY="..."
+```
+
+Notes:
+
+- `DATABASE_URL` must point at PostgreSQL on this branch
+- `APP_BASE_URL` is used to build links in reminder emails
+- `CRON_SECRET` protects `/api/cron/[job]`
+- missing external keys degrade those features instead of crashing the build
+
+## Local Development
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Push the Prisma schema to your database:
+
+```bash
+npx prisma db push
+npx prisma db seed
+```
+
+3. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Run the verification loop before shipping:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scheduler Setup
 
-## Learn More
+This branch does not run a local `node-cron` worker. Schedule an external service such as `cron-job.org` to call these routes on your deployed app:
 
-To learn more about Next.js, take a look at the following resources:
+- `GET /api/cron/morning`
+- `GET /api/cron/midday`
+- `GET /api/cron/evening`
+- `GET /api/cron/weekly-review`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Authenticate each request with one of:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `Authorization: Bearer <CRON_SECRET>`
+- `x-cron-secret: <CRON_SECRET>`
+- `?key=<CRON_SECRET>`
 
-## Deploy on Vercel
+## Deployment Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Deploy the app to Vercel
+- Provision PostgreSQL separately, for example through Supabase
+- Add the same environment variables in Vercel
+- After the first deployment, run `npx prisma db push` against the hosted database before using the app

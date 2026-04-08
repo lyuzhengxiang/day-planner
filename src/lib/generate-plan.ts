@@ -6,21 +6,14 @@ import { calculateStreak } from "@/lib/streak";
 import { exportDayMarkdown } from "@/lib/markdown";
 import { notify } from "@/lib/notifications";
 import { startOfDay } from "date-fns";
-import { buildAppUrl, getEventsForDate } from "@/lib/planner";
+import { getEventsForDate } from "@/lib/planner";
+import { getAppBaseUrl } from "@/lib/app-config";
 
 export async function generateDailyPlan() {
   const today = startOfDay(new Date());
   const openai = getOpenAI();
 
-  const [
-    weather,
-    quote,
-    streak,
-    weeklyGoals,
-    recurringEvents,
-    rolledTasks,
-    settings,
-  ] =
+  const [weather, quote, streak, weeklyGoals, recurringEvents, rolledTasks] =
     await Promise.all([
       fetchWeather(),
       pickQuote(),
@@ -34,7 +27,6 @@ export async function generateDailyPlan() {
         },
         orderBy: { rolledDays: "desc" },
       }),
-      prisma.settings.findUnique({ where: { id: 1 } }),
     ]);
 
   const todaysEvents = getEventsForDate(recurringEvents, today);
@@ -184,7 +176,7 @@ Respond with ONLY valid JSON:
     )
     .join("\n");
 
-  const appUrl = buildAppUrl(settings?.macLocalIp ?? "", settings?.appPort ?? "3000");
+  const appUrl = getAppBaseUrl();
   const message = `Good morning! Here's your plan for today:\n\n"${quote}"\n\n${taskSummary}\n\nWeather: Chicago ${weather}\nStreak: ${streak} days\n\nOpen: ${appUrl}`;
 
   await notify(message, "Your Day Plan");

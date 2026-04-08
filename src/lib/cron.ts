@@ -1,19 +1,10 @@
-import cron from "node-cron";
 import { startOfDay } from "date-fns";
 import { generateDailyPlan } from "@/lib/generate-plan";
 import { notify } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { generateWeeklyReflection } from "@/lib/reflection";
-import { buildAppUrl, summarizeTasks } from "@/lib/planner";
-
-interface CronSettings {
-  morningTime: string;
-  middayTime: string;
-  eveningTime: string;
-  timezone: string;
-  macLocalIp: string;
-  appPort: string;
-}
+import { summarizeTasks } from "@/lib/planner";
+import { getAppBaseUrl } from "@/lib/app-config";
 
 interface TaskLike {
   text: string;
@@ -25,46 +16,14 @@ interface TodayPlanLike {
   tasks: TaskLike[];
 }
 
-interface ScheduledJob {
-  stop: () => void;
-  destroy?: () => void;
-}
-
-interface Scheduler {
-  schedule: (
-    expression: string,
-    task: () => void | Promise<void>,
-    options?: { timezone?: string }
-  ) => ScheduledJob;
-}
-
 interface CronDeps {
-  getSettings: () => Promise<Partial<CronSettings> | null>;
   generateDailyPlan: typeof generateDailyPlan;
   getTodayPlan: () => Promise<TodayPlanLike | null>;
   generateWeeklyReflection: typeof generateWeeklyReflection;
   notify: typeof notify;
 }
 
-interface CronState {
-  jobs: ScheduledJob[];
-}
-
-const globalForCron = globalThis as unknown as { dayPlannerCron?: CronState };
-
-const defaultSettings: CronSettings = {
-  morningTime: "06:30",
-  middayTime: "12:30",
-  eveningTime: "20:30",
-  timezone: "America/Chicago",
-  macLocalIp: "",
-  appPort: "3000",
-};
-
 const defaultDeps: CronDeps = {
-  async getSettings() {
-    return prisma.settings.findUnique({ where: { id: 1 } });
-  },
   generateDailyPlan,
   async getTodayPlan() {
     return prisma.dailyPlan.findUnique({
@@ -79,17 +38,6 @@ const defaultDeps: CronDeps = {
   generateWeeklyReflection,
   notify,
 };
-
-export function timeToCron(time: string): string {
-  const match = /^(\d{2}):(\d{2})$/.exec(time);
-
-  if (!match) {
-    throw new Error(`Invalid time format: ${time}`);
-  }
-
-  const [, hours, minutes] = match;
-  return `${Number(minutes)} ${Number(hours)} * * *`;
-}
 
 export function buildMiddayNudgeMessage(tasks: TaskLike[]): string | null {
   const summary = summarizeTasks(tasks);
@@ -121,135 +69,57 @@ export function buildEveningWrapUpMessage(
     .join(", ")}. Open the app to carry forward or drop: ${appUrl}`;
 }
 
-function shouldSkipCronInitialization(): boolean {
-  return (
-    process.env.DISABLE_DAY_PLANNER_CRON === "true" ||
-    process.env.npm_lifecycle_event === "build"
-  );
+export async function runMorningCron(deps: CronDeps = defaultDeps) {
+  return deps.generateDailyPlan();
 }
 
-function stopJobs(jobs: ScheduledJob[]) {
-  for (const job of jobs) {
-    job.stop();
-    job.destroy?.();
+export async function runMiddayCron(deps: CronDeps = defaultDeps) {
+  const plan = await deps.getTodayPlan();
+  const message = buildMiddayNudgeMessage(plan?.tasks ?? []);
+
+  if (!message) {
+    return { notified: false, message: null };
   }
-}
 
-async function createCronState(
-  scheduler: Scheduler,
-  deps: CronDeps
-): Promise<CronState> {
-  const settings = {
-    ...defaultSettings,
-    ...(await deps.getSettings()),
+  const delivery = await deps.notify(message, "Midday Nudge");
+
+  return {
+    notified: Boolean(delivery.email || delivery.iMessage),
+    message,
   };
-
-  const jobs = [
-    scheduler.schedule(
-      timeToCron(settings.morningTime),
-      async () => {
-        try {
-          await deps.generateDailyPlan();
-        } catch (error) {
-          console.error("[cron] Daily plan generation failed:", error);
-        }
-      },
-      { timezone: settings.timezone }
-    ),
-    scheduler.schedule(
-      timeToCron(settings.middayTime),
-      async () => {
-        try {
-          const plan = await deps.getTodayPlan();
-          const message = buildMiddayNudgeMessage(plan?.tasks ?? []);
-
-          if (message) {
-            await deps.notify(message, "Midday Nudge");
-          }
-        } catch (error) {
-          console.error("[cron] Midday nudge failed:", error);
-        }
-      },
-      { timezone: settings.timezone }
-    ),
-    scheduler.schedule(
-      timeToCron(settings.eveningTime),
-      async () => {
-        try {
-          const plan = await deps.getTodayPlan();
-          const message = buildEveningWrapUpMessage(
-            plan?.tasks ?? [],
-            buildAppUrl(settings.macLocalIp, settings.appPort)
-          );
-
-          if (message) {
-            await deps.notify(message, "Evening Wrap-up");
-          }
-        } catch (error) {
-          console.error("[cron] Evening wrap-up failed:", error);
-        }
-      },
-      { timezone: settings.timezone }
-    ),
-    scheduler.schedule(
-      "0 18 * * 0",
-      async () => {
-        try {
-          const reflection = await deps.generateWeeklyReflection();
-          await deps.notify(
-            `Weekly reflection ready.\n\n${reflection.summary}\n\nOpen: ${buildAppUrl(settings.macLocalIp, settings.appPort)}/review`,
-            "Weekly Reflection"
-          );
-        } catch (error) {
-          console.error("[cron] Weekly reflection failed:", error);
-        }
-      },
-      { timezone: settings.timezone }
-    ),
-  ];
-
-  return { jobs };
 }
 
-export async function initCron(options?: {
-  scheduler?: Scheduler;
-  deps?: CronDeps;
-}) {
-  if (shouldSkipCronInitialization()) {
-    return;
+export async function runEveningCron(
+  deps: CronDeps = defaultDeps,
+  appBaseUrl = getAppBaseUrl()
+) {
+  const plan = await deps.getTodayPlan();
+  const message = buildEveningWrapUpMessage(plan?.tasks ?? [], appBaseUrl);
+
+  if (!message) {
+    return { notified: false, message: null };
   }
 
-  if (globalForCron.dayPlannerCron) {
-    return;
-  }
+  const delivery = await deps.notify(message, "Evening Wrap-up");
 
-  const scheduler = options?.scheduler ?? cron;
-  const deps = options?.deps ?? defaultDeps;
-
-  globalForCron.dayPlannerCron = await createCronState(scheduler, deps);
+  return {
+    notified: Boolean(delivery.email || delivery.iMessage),
+    message,
+  };
 }
 
-export async function reloadCron(options?: {
-  scheduler?: Scheduler;
-  deps?: CronDeps;
-}) {
-  if (shouldSkipCronInitialization()) {
-    return;
-  }
+export async function runWeeklyReviewCron(
+  deps: CronDeps = defaultDeps,
+  appBaseUrl = getAppBaseUrl()
+) {
+  const reflection = await deps.generateWeeklyReflection();
+  const delivery = await deps.notify(
+    `Weekly reflection ready.\n\n${reflection.summary}\n\nOpen: ${appBaseUrl}/review`,
+    "Weekly Reflection"
+  );
 
-  if (globalForCron.dayPlannerCron) {
-    stopJobs(globalForCron.dayPlannerCron.jobs);
-  }
-
-  const scheduler = options?.scheduler ?? cron;
-  const deps = options?.deps ?? defaultDeps;
-
-  globalForCron.dayPlannerCron = await createCronState(scheduler, deps);
-}
-
-export function resetCronForTests() {
-  if (globalForCron.dayPlannerCron) {
-    stopJobs(globalForCron.dayPlannerCron.jobs);
-    delete globalForCron.dayPlannerCron;
-  }
+  return {
+    notified: Boolean(delivery.email || delivery.iMessage),
+    summary: reflection.summary,
+  };
 }

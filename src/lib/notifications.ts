@@ -1,44 +1,11 @@
-import { execFile } from "child_process";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
-export function buildIMessageArgs(phone: string, message: string): string[] {
-  return [
-    "-e",
-    "on run argv",
-    "-e",
-    "set targetBuddy to item 1 of argv as text",
-    "-e",
-    "set outgoingMessage to item 2 of argv as text",
-    "-e",
-    'tell application "Messages"',
-    "-e",
-    'set targetService to 1st account whose service type = iMessage',
-    "-e",
-    "send outgoingMessage to buddy targetBuddy of targetService",
-    "-e",
-    "end tell",
-    "-e",
-    "end run",
-    phone,
-    message,
-  ];
-}
-
-export function sendIMessage(
-  phone: string,
-  message: string
-): Promise<boolean> {
-  return new Promise((resolve) => {
-    execFile("osascript", buildIMessageArgs(phone, message), (err) => {
-      if (err) {
-        console.error("iMessage failed:", err.message);
-        resolve(false);
-      } else {
-        resolve(true);
-      }
-    });
-  });
+export function getNotificationEmail(settings?: {
+  emailAddress?: string;
+} | null): string | null {
+  const email = settings?.emailAddress?.trim();
+  return email ? email : null;
 }
 
 export async function sendEmail(
@@ -66,22 +33,13 @@ export async function notify(
   subject = "Day Planner"
 ): Promise<{ attempted: boolean; iMessage: boolean; email: boolean }> {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const email = getNotificationEmail(settings);
 
-  if (!settings?.iMessagePhone && !settings?.emailAddress) {
+  if (!email) {
     return { attempted: false, iMessage: false, email: false };
   }
 
-  let iMessageSent = false;
-  let emailSent = false;
+  const emailSent = await sendEmail(email, subject, message);
 
-  if (settings.iMessagePhone) {
-    iMessageSent = await sendIMessage(settings.iMessagePhone, message);
-  }
-
-  // Email is a fallback — only send if iMessage was not configured or failed
-  if (settings.emailAddress && !iMessageSent) {
-    emailSent = await sendEmail(settings.emailAddress, subject, message);
-  }
-
-  return { attempted: true, iMessage: iMessageSent, email: emailSent };
+  return { attempted: true, iMessage: false, email: emailSent };
 }

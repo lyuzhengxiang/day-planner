@@ -3,16 +3,11 @@ import assert from "node:assert/strict";
 import {
   buildEveningWrapUpMessage,
   buildMiddayNudgeMessage,
-  initCron,
-  resetCronForTests,
-  reloadCron,
-  timeToCron,
+  runEveningCron,
+  runMiddayCron,
+  runMorningCron,
+  runWeeklyReviewCron,
 } from "../../src/lib/cron.ts";
-
-test("timeToCron converts hh:mm to cron format", () => {
-  assert.equal(timeToCron("06:30"), "30 6 * * *");
-  assert.equal(timeToCron("21:05"), "5 21 * * *");
-});
 
 test("buildMiddayNudgeMessage only notifies when progress is below half", () => {
   assert.equal(
@@ -49,53 +44,88 @@ test("buildEveningWrapUpMessage includes remaining work and review link", () => 
   assert.match(message ?? "", /192.168.1.10:3000/);
 });
 
-test("reloadCron stops old jobs before replacing them", async () => {
-  resetCronForTests();
-
-  const stopped: string[] = [];
-  const scheduled: string[] = [];
-
-  const scheduler = {
-    schedule(expression: string) {
-      scheduled.push(expression);
-      return {
-        stop() {
-          stopped.push(expression);
-        },
-      };
-    },
-  };
-
+test("runMorningCron delegates to daily plan generation", async () => {
+  let called = false;
   const deps = {
-    getSettings: async () => ({
-      morningTime: "06:30",
-      middayTime: "12:30",
-      eveningTime: "20:30",
-      timezone: "America/Chicago",
-      macLocalIp: "192.168.1.10",
-    }),
-    generateDailyPlan: async () => ({ planId: 1 }),
+    generateDailyPlan: async () => {
+      called = true;
+      return { planId: 1 };
+    },
     getTodayPlan: async () => null,
     generateWeeklyReflection: async () => ({ summary: "Solid week." }),
     notify: async () => ({ attempted: false, iMessage: false, email: false }),
   };
 
-  await initCron({ scheduler, deps });
-  assert.deepEqual(scheduled, [
-    "30 6 * * *",
-    "30 12 * * *",
-    "30 20 * * *",
-    "0 18 * * 0",
-  ]);
+  const result = await runMorningCron(deps);
 
-  await reloadCron({ scheduler, deps });
-  assert.deepEqual(stopped, [
-    "30 6 * * *",
-    "30 12 * * *",
-    "30 20 * * *",
-    "0 18 * * 0",
-  ]);
-  assert.equal(scheduled.length, 8);
+  assert.equal(called, true);
+  assert.deepEqual(result, { planId: 1 });
+});
 
-  resetCronForTests();
+test("runMiddayCron only notifies when the message builder returns content", async () => {
+  let sent = "";
+  const deps = {
+    generateDailyPlan: async () => ({ planId: 1 }),
+    getTodayPlan: async () => ({
+      tasks: [
+        { text: "Ship feature", urgency: "URGENT", completed: false },
+        { text: "Read docs", urgency: "LOW", completed: false },
+      ],
+    }),
+    generateWeeklyReflection: async () => ({ summary: "Solid week." }),
+    notify: async (message: string) => {
+      sent = message;
+      return { attempted: true, iMessage: false, email: true };
+    },
+  };
+
+  const result = await runMiddayCron(deps);
+
+  assert.equal(result.notified, true);
+  assert.match(result.message ?? "", /2 tasks left/i);
+  assert.match(sent, /Ship feature/);
+});
+
+test("runEveningCron links back to the deployed app URL", async () => {
+  let sent = "";
+  const deps = {
+    generateDailyPlan: async () => ({ planId: 1 }),
+    getTodayPlan: async () => ({
+      tasks: [{ text: "Ship feature", completed: false }],
+    }),
+    generateWeeklyReflection: async () => ({ summary: "Solid week." }),
+    notify: async (message: string) => {
+      sent = message;
+      return { attempted: true, iMessage: false, email: true };
+    },
+  };
+
+  const result = await runEveningCron(
+    deps,
+    "https://day-planner.vercel.app"
+  );
+
+  assert.equal(result.notified, true);
+  assert.match(sent, /day-planner\.vercel\.app/);
+});
+
+test("runWeeklyReviewCron emails the review link", async () => {
+  let sent = "";
+  const deps = {
+    generateDailyPlan: async () => ({ planId: 1 }),
+    getTodayPlan: async () => null,
+    generateWeeklyReflection: async () => ({ summary: "Solid week." }),
+    notify: async (message: string) => {
+      sent = message;
+      return { attempted: true, iMessage: false, email: true };
+    },
+  };
+
+  const result = await runWeeklyReviewCron(
+    deps,
+    "https://day-planner.vercel.app"
+  );
+
+  assert.deepEqual(result, { notified: true, summary: "Solid week." });
+  assert.match(sent, /\/review/);
 });

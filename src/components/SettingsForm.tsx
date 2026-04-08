@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 
 interface SettingsData {
-  iMessagePhone: string;
   emailAddress: string;
   morningTime: string;
   middayTime: string;
   eveningTime: string;
   timezone: string;
-  macLocalIp: string;
-  appPort: string;
 }
 
-export default function SettingsForm({ initial }: { initial: SettingsData }) {
+export default function SettingsForm({
+  initial,
+  appBaseUrl,
+}: {
+  initial: SettingsData;
+  appBaseUrl: string;
+}) {
   const [data, setData] = useState(initial);
   const [saved, setSaved] = useState(false);
 
@@ -54,8 +57,7 @@ export default function SettingsForm({ initial }: { initial: SettingsData }) {
     label: string;
     placeholder: string;
   }[] = [
-    { key: "iMessagePhone", label: "Phone (iMessage)", placeholder: "+11234567890" },
-    { key: "emailAddress", label: "Email (fallback)", placeholder: "you@example.com" },
+    { key: "emailAddress", label: "Notification email", placeholder: "you@example.com" },
     { key: "morningTime", label: "Morning plan time", placeholder: "06:30" },
     { key: "middayTime", label: "Midday nudge time", placeholder: "12:30" },
     { key: "eveningTime", label: "Evening wrap-up time", placeholder: "20:30" },
@@ -80,14 +82,19 @@ export default function SettingsForm({ initial }: { initial: SettingsData }) {
 
       <div className="pt-4">
         <label className="text-[10px] uppercase tracking-wider text-gray-600 block mb-1">
-          Local IP (for Apple Shortcuts)
+          App Base URL
         </label>
-        <p className="text-sm text-gray-400 font-mono">
-          {data.macLocalIp || "detecting..."}:{data.appPort || "3000"}
-        </p>
+        <p className="text-sm text-gray-400 font-mono">{appBaseUrl}</p>
         <p className="text-[10px] text-gray-600 mt-1">
-          Use this in your Shortcut URL: http://
-          {data.macLocalIp || "..."}:{data.appPort || "3000"}/api/today/voice
+          Configure your external scheduler to call:
+          {" "}
+          {appBaseUrl}/api/cron/morning,
+          {" "}
+          {appBaseUrl}/api/cron/midday,
+          {" "}
+          {appBaseUrl}/api/cron/evening,
+          {" "}
+          and {appBaseUrl}/api/cron/weekly-review
         </p>
       </div>
 

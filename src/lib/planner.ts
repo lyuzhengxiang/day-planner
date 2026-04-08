@@ -5,7 +5,6 @@ export interface TaskLike {
 }
 
 export interface SettingsLike {
-  iMessagePhone: string;
   emailAddress: string;
 }
 
@@ -30,7 +29,7 @@ export function summarizeTasks<T extends TaskLike>(tasks: T[]) {
 }
 
 export function needsContactSetup(settings?: SettingsLike | null): boolean {
-  return !settings?.iMessagePhone.trim() && !settings?.emailAddress.trim();
+  return !settings?.emailAddress.trim();
 }
 
 export function getEventsForDate<T extends RecurringEventLike>(
@@ -53,17 +52,4 @@ export function parseDayParam(value: string): Date | null {
 
   const parsed = startOfDay(parseISO(value));
   return isValid(parsed) ? parsed : null;
-}
-
-export function getPortFromHost(host: string | null): string {
-  if (!host) {
-    return "3000";
-  }
-
-  const match = /:(\d+)$/.exec(host.trim());
-  return match?.[1] ?? "3000";
-}
-
-export function buildAppUrl(macLocalIp: string, appPort: string): string {
-  return `http://${macLocalIp || "localhost"}:${appPort || "3000"}`;
 }

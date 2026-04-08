@@ -3,20 +3,17 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Settings {
-  id            Int    @id @default(1)
-  iMessagePhone String @default("")
-  emailAddress  String @default("")
-  morningTime   String @default("06:30")
-  middayTime    String @default("12:30")
-  eveningTime   String @default("20:30")
-  timezone      String @default("America/Chicago")
-  macLocalIp    String @default("")
-  appPort       String @default("3000")
+  id           Int    @id @default(1)
+  emailAddress String @default("")
+  morningTime  String @default("06:30")
+  middayTime   String @default("12:30")
+  eveningTime  String @default("20:30")
+  timezone     String @default("America/Chicago")
 }
 
 model WeeklyGoal {

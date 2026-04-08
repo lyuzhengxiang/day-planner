@@ -1,9 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildAppUrl,
   getEventsForDate,
-  getPortFromHost,
   needsContactSetup,
   parseDayParam,
   summarizeTasks,
@@ -56,10 +54,14 @@ test("getEventsForDate filters and sorts recurring events for a date", () => {
   ]);
 });
 
-test("needsContactSetup only returns false once a contact method exists", () => {
+test("needsContactSetup only returns false once an email exists", () => {
   assert.equal(needsContactSetup(null), true);
   assert.equal(
     needsContactSetup({ iMessagePhone: "", emailAddress: "  " }),
+    true
+  );
+  assert.equal(
+    needsContactSetup({ iMessagePhone: "+18723823360", emailAddress: "  " }),
     true
   );
   assert.equal(
@@ -77,16 +79,4 @@ test("parseDayParam only accepts yyyy-mm-dd values", () => {
   assert.equal(parsed.getDate(), 7);
   assert.equal(parseDayParam("04-07-2026"), null);
   assert.equal(parseDayParam("2026-99-99"), null);
-});
-
-test("getPortFromHost keeps the current request port when present", () => {
-  assert.equal(getPortFromHost("localhost:3001"), "3001");
-  assert.equal(getPortFromHost("10.0.0.5:4567"), "4567");
-  assert.equal(getPortFromHost("localhost"), "3000");
-  assert.equal(getPortFromHost(null), "3000");
-});
-
-test("buildAppUrl combines host and detected port", () => {
-  assert.equal(buildAppUrl("10.0.0.5", "3001"), "http://10.0.0.5:3001");
-  assert.equal(buildAppUrl("", "3000"), "http://localhost:3000");
 });
