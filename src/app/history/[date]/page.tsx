@@ -2,30 +2,27 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import ProgressBar from "@/components/ProgressBar";
-import QuoteBlock from "@/components/QuoteBlock";
-import ScheduleBlock from "@/components/ScheduleBlock";
-import StreakCounter from "@/components/StreakCounter";
-import TaskList from "@/components/TaskList";
-import WeatherBadge from "@/components/WeatherBadge";
-import { getEventsForDate, parseDayParam, summarizeTasks } from "@/lib/planner";
+import ACShell from "@/components/ac/ACShell";
+import ACCard from "@/components/ac/ACCard";
+import ACSectionHeader from "@/components/ac/ACSectionHeader";
+import Eyebrow from "@/components/ac/Eyebrow";
+import HeroRingStack from "@/components/ac/HeroRingStack";
+import TimelineCard from "@/components/ac/today/TimelineCard";
+import { AC, URGENCY_COLOR } from "@/lib/design-tokens";
+import { getEventsForDate, parseDayParam } from "@/lib/planner";
+import { computeThreeRings } from "@/lib/ring-stats";
 import { prisma } from "@/lib/prisma";
 
 interface HistoryDayPageProps {
   params: Promise<{ date: string }>;
 }
 
-export default async function HistoryDayPage({
-  params,
-}: HistoryDayPageProps) {
+export default async function HistoryDayPage({ params }: HistoryDayPageProps) {
   await connection();
 
   const { date } = await params;
   const parsedDate = parseDayParam(date);
-
-  if (!parsedDate) {
-    notFound();
-  }
+  if (!parsedDate) notFound();
 
   const [plan, recurringEvents] = await Promise.all([
     prisma.dailyPlan.findUnique({
@@ -34,67 +31,200 @@ export default async function HistoryDayPage({
     }),
     prisma.recurringEvent.findMany({ where: { active: true } }),
   ]);
+  if (!plan) notFound();
 
-  if (!plan) {
-    notFound();
-  }
-
-  const summary = summarizeTasks(plan.tasks);
   const events = getEventsForDate(recurringEvents, plan.date);
+  const rings = computeThreeRings(plan.tasks);
 
   return (
-    <section className="rounded-[28px] border border-gray-800/80 bg-black/25 px-6 py-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <ACShell>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          marginBottom: 24,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <p className="text-[10px] uppercase tracking-[0.24em] text-gray-600">
-            History Detail
-          </p>
-          <h1 className="mt-3 text-3xl text-gray-100">
-            {format(plan.date, "EEEE, MMMM d")}
+          <Eyebrow>Archived day</Eyebrow>
+          <h1
+            style={{
+              fontSize: 60,
+              fontWeight: 800,
+              margin: "2px 0 0",
+              letterSpacing: "-0.03em",
+              lineHeight: 1,
+            }}
+          >
+            {format(plan.date, "MMM d")}
           </h1>
+          <p style={{ margin: "6px 0 0", color: AC.dim, fontSize: 14 }}>
+            {format(plan.date, "EEEE")} · {plan.weatherSummary}
+          </p>
         </div>
-
-        <div className="flex flex-col items-start gap-2 text-left sm:items-end sm:text-right">
-          <WeatherBadge weather={plan.weatherSummary} />
-          <StreakCounter count={plan.streakCount} />
-        </div>
-      </div>
-
-      <QuoteBlock quote={plan.quote} />
-      <ScheduleBlock events={events} />
-
-      <section className="rounded-2xl border border-gray-800/80 bg-black/20 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-gray-600">
-              Archived Tasks
-            </p>
-            <p className="mt-2 text-sm text-gray-400">
-              {summary.completed === summary.total
-                ? "That day was fully completed."
-                : `${summary.remaining} unfinished on this date.`}
-            </p>
-          </div>
-          <span className="text-xs text-gray-500">
-            {summary.percentage}% done
-          </span>
-        </div>
-
-        <ProgressBar completed={summary.completed} total={summary.total} />
-
-        <div className="mt-4">
-          <TaskList initialTasks={plan.tasks} readOnly />
-        </div>
-      </section>
-
-      <div className="mt-8">
         <Link
           href="/history"
-          className="text-sm text-green-500 transition-colors hover:text-green-400"
+          style={{
+            padding: "10px 16px",
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.06)",
+            color: AC.text,
+            fontSize: 13,
+            fontWeight: 700,
+            border: "1px solid rgba(255,255,255,0.1)",
+            textDecoration: "none",
+          }}
         >
-          ← Back to history
+          ← Back
         </Link>
       </div>
-    </section>
+
+      <ACCard
+        style={{
+          padding: 32,
+          display: "grid",
+          gridTemplateColumns: "auto 1fr",
+          gap: 32,
+          alignItems: "center",
+          marginBottom: 18,
+        }}
+      >
+        <HeroRingStack
+          values={[rings.done, rings.focus, rings.energy]}
+          size={220}
+          center={
+            <>
+              <span
+                style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1 }}
+              >
+                {rings.donePercent}
+                <span style={{ fontSize: 22, color: AC.dim }}>%</span>
+              </span>
+              <Eyebrow style={{ fontSize: 11, marginTop: 4 }}>complete</Eyebrow>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: AC.text,
+                  marginTop: 2,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {rings.doneCount}/{rings.totalCount}
+              </span>
+            </>
+          }
+        />
+        <div>
+          <Eyebrow color={AC.orange}>Quote</Eyebrow>
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontSize: 17,
+              lineHeight: 1.55,
+              color: AC.text,
+              fontStyle: "italic",
+            }}
+          >
+            {plan.quote || "(no quote on this day)"}
+          </p>
+          <p style={{ margin: "12px 0 0", fontSize: 12, color: AC.dim }}>
+            Streak at {plan.streakCount} day{plan.streakCount === 1 ? "" : "s"} on this date.
+          </p>
+        </div>
+      </ACCard>
+
+      <ACSectionHeader label="Timeline" right={`${events.length} block${events.length === 1 ? "" : "s"}`} />
+      <ACCard style={{ marginBottom: 22 }}>
+        <TimelineCard
+          events={events.map((e) => ({
+            title: e.title,
+            startTime: e.startTime,
+            endTime: e.endTime,
+          }))}
+        />
+      </ACCard>
+
+      <ACSectionHeader label="Tasks" right={`${rings.doneCount}/${rings.totalCount}`} />
+      {plan.tasks.length === 0 ? (
+        <ACCard>
+          <p style={{ margin: 0, fontSize: 14, color: AC.dim }}>No tasks recorded.</p>
+        </ACCard>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {plan.tasks.map((task) => {
+            const color = URGENCY_COLOR[task.urgency] || AC.cyan;
+            return (
+              <div
+                key={task.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 16px",
+                  background: task.completed
+                    ? "rgba(28,28,30,0.4)"
+                    : "rgba(28,28,30,0.85)",
+                  border: `1px solid ${task.completed ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)"}`,
+                  borderRadius: 16,
+                  opacity: task.completed ? 0.6 : 1,
+                }}
+              >
+                <div
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    border: `2px solid ${color}`,
+                    background: task.completed ? color : "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {task.completed && (
+                    <span style={{ color: "#0a0a0a", fontSize: 14, fontWeight: 800 }}>✓</span>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14,
+                      lineHeight: 1.35,
+                      color: task.completed ? AC.dim : AC.text,
+                      textDecoration: task.completed ? "line-through" : "none",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {task.text}
+                  </p>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 11,
+                      color,
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    {task.urgency}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </ACShell>
   );
 }
