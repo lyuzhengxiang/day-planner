@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
-import Nav from "@/components/Nav";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { AC } from "@/lib/design-tokens";
 import "./globals.css";
 
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Day Planner",
@@ -18,12 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${mono.variable} font-mono bg-[#0a0a0a] text-gray-200 min-h-screen`}
+        className={`${inter.variable} ${mono.variable} min-h-screen`}
+        style={{ background: AC.shellGrad, color: AC.text }}
       >
-        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-          <Nav />
-          {children}
-        </main>
+        {children}
       </body>
     </html>
   );
