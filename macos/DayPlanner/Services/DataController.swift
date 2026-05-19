@@ -78,4 +78,59 @@ enum Seeder {
             try? context.save()
         }
     }
+
+    /// Demo-mode seeding. Gated by `DAYPLANNER_DEMO_MODE=true` so it never
+    /// runs in real use. Inserts 3 sample weekly goals and a sample day plan
+    /// for today (with 5 tasks) — but only if those slots are empty, so it
+    /// won't clobber a returning user's data.
+    @MainActor
+    static func seedDemoIfRequested(container: ModelContainer) {
+        guard ProcessInfo.processInfo.environment["DAYPLANNER_DEMO_MODE"] == "true" else { return }
+        let context = ModelContext(container)
+
+        let weekStart = Date().startOfWeekMonday()
+
+        // 1. Sample weekly goals
+        let activeGoalsCount = (try? context.fetch(
+            FetchDescriptor<WeeklyGoal>(predicate: #Predicate { $0.active })
+        ))?.count ?? 0
+        if activeGoalsCount == 0 {
+            let goals = [
+                WeeklyGoal(text: "Finish DBS project v3 deliverable", priority: .urgent, weekStart: weekStart),
+                WeeklyGoal(text: "Prep for Week 8 project demo", priority: .high, weekStart: weekStart),
+                WeeklyGoal(text: "Read 30 minutes every day", priority: .medium, weekStart: weekStart),
+            ]
+            for g in goals { context.insert(g) }
+        }
+
+        // 2. Sample plan for today, only if none exists
+        let today = Date().startOfDay()
+        let existingPlan = try? context.fetch(
+            FetchDescriptor<DailyPlan>(predicate: #Predicate { $0.date == today })
+        ).first
+        if existingPlan == nil {
+            let plan = DailyPlan(
+                date: today,
+                quote: "The secret of getting ahead is getting started.",
+                weatherSummary: "Chicago 72°F, partly cloudy",
+                markdownPath: "",
+                streakCount: 4
+            )
+            context.insert(plan)
+
+            let sampleTasks: [(String, Urgency)] = [
+                ("Finalize Phase 4-6 demo script", .urgent),
+                ("Send recording to study group", .high),
+                ("Review weekly reflection from last week", .medium),
+                ("Read 30 min before bed", .medium),
+                ("Reply to advisor email", .low),
+            ]
+            for (i, (text, urgency)) in sampleTasks.enumerated() {
+                let t = Task(text: text, urgency: urgency, order: i, dailyPlan: plan)
+                context.insert(t)
+            }
+        }
+
+        try? context.save()
+    }
 }

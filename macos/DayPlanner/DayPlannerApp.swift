@@ -21,6 +21,7 @@ struct DayPlannerApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Seeder.seedDemoIfRequested(container: DataController.shared.container)
         Scheduler.shared.start()
         AppLog.scheduler.info("DayPlanner launched and scheduler started")
     }
