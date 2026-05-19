@@ -37,7 +37,7 @@ public final class OpenAIService: LLMService {
         while attempt < maxRetries {
             do {
                 let result = try await openAI.chats(query: query)
-                let content = result.choices.first?.message.content?.string ?? ""
+                let content = result.choices.first?.message.content ?? ""
                 if content.isEmpty {
                     throw LLMError.emptyResponse
                 }
