@@ -50,5 +50,20 @@ struct DayPlannerShortcuts: AppShortcutsProvider {
             shortTitle: "Generate plan",
             systemImageName: "sparkles"
         )
+        AppShortcut(
+            intent: MorningRoutineIntent(),
+            phrases: [
+                "Run my morning routine in \(.applicationName)",
+                "Start my morning routine in \(.applicationName)",
+                "Start my morning in \(.applicationName)",
+                "It's morning in \(.applicationName)",
+                "Good morning \(.applicationName)",
+                "Wake me up in \(.applicationName)",
+                "Show me my morning in \(.applicationName)",
+                "Show me what you're going to do in \(.applicationName)",
+            ],
+            shortTitle: "Morning routine",
+            systemImageName: "sunrise.fill"
+        )
     }
 }
