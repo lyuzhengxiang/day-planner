@@ -1,43 +1,72 @@
 import SwiftUI
 import SwiftData
 
-/// Root container. The full SwiftUI surface (Today / Week / History / Settings /
-/// Review tabs) is filled in across Phase 5; for now this just verifies the
-/// scaffold compiles and the SwiftData container is reachable.
+/// Root view. NavigationSplitView with five sections; only Today is built out
+/// for v3 milestone — Week / History / Review / Settings ship as placeholder
+/// "coming soon" panels so the navigation surface is wired and reviewable.
 struct ContentView: View {
-    @Query private var settings: [AppSettings]
-    @Query(sort: \DailyPlan.date, order: .reverse) private var plans: [DailyPlan]
+    @State private var selection: Section = .today
+
+    enum Section: String, Hashable, CaseIterable, Identifiable {
+        case today, week, history, review, settings
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .today:    return "Today"
+            case .week:     return "Week"
+            case .history:  return "History"
+            case .review:   return "Review"
+            case .settings: return "Settings"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .today:    return "sun.max"
+            case .week:     return "calendar"
+            case .history:  return "clock.arrow.circlepath"
+            case .review:   return "checkmark.seal"
+            case .settings: return "gear"
+            }
+        }
+    }
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("DayPlanner")
-                .font(.system(.title, design: .monospaced).weight(.semibold))
-            Text("Scaffold — Phase 1 + 2 + partial Phase 3")
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-
-            GroupBox("Database") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Settings rows: \(settings.count)")
-                    Text("Daily plans: \(plans.count)")
-                    if let first = settings.first {
-                        Text("Morning time: \(first.morningTime)")
-                        Text("Timezone: \(first.timezone)")
-                        Text("Contact configured: \(first.needsContactSetup ? "no" : "yes")")
-                    }
-                }
-                .font(.system(.body, design: .monospaced))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
+        NavigationSplitView {
+            List(Section.allCases, selection: $selection) { section in
+                Label(section.title, systemImage: section.systemImage)
+                    .font(.system(.body, design: .monospaced))
+                    .tag(section)
             }
-
-            Text("Run `xcodegen generate && open DayPlanner.xcodeproj` after pulling.")
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.tertiary)
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 160, ideal: 180)
+        } detail: {
+            switch selection {
+            case .today:    TodayView()
+            case .week:     ComingSoonView(title: "Weekly Goals")
+            case .history:  ComingSoonView(title: "History")
+            case .review:   ComingSoonView(title: "Reflection")
+            case .settings: ComingSoonView(title: "Settings")
+            }
         }
-        .padding(32)
-        .frame(width: 480, height: 360)
+        .frame(minWidth: 820, minHeight: 600)
         .preferredColorScheme(.dark)
+    }
+}
+
+private struct ComingSoonView: View {
+    let title: String
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(title)
+                .font(.system(.title, design: .monospaced).weight(.semibold))
+            Text("Coming in the next milestone.")
+                .font(.system(.callout, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.85))
     }
 }
 
