@@ -23,14 +23,20 @@ if command -v xcodegen >/dev/null 2>&1; then
 fi
 
 echo "Building ${APP_NAME} with ${IDENTITY}…"
+# OTHER_CODE_SIGN_FLAGS=--timestamp=none avoids a timestamping handshake
+# with Apple's servers that occasionally hangs and triggers a fall-back
+# to "Sign to Run Locally". -destination must include arch=arm64 (or
+# x86_64) explicitly — bare "platform=macOS" sometimes lets xcodebuild
+# pick a destination whose default signing config is ad-hoc.
 xcodebuild build \
     -project "${APP_NAME}.xcodeproj" \
     -scheme "${APP_NAME}" \
-    -destination "platform=macOS" \
+    -destination "platform=macOS,arch=arm64" \
     CODE_SIGN_IDENTITY="${IDENTITY}" \
     DEVELOPMENT_TEAM="${TEAM_ID}" \
     CODE_SIGN_STYLE=Manual \
-    -quiet
+    OTHER_CODE_SIGN_FLAGS="--timestamp=none" \
+    2>&1 | grep -E "Signing Identity|error:|BUILD" | tail -10
 
 DERIVED_APP=$(find ~/Library/Developer/Xcode/DerivedData \
     -path "*/Debug/${APP_NAME}.app" -type d 2>/dev/null | head -1)

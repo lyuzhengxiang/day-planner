@@ -50,17 +50,23 @@ struct DayPlannerShortcuts: AppShortcutsProvider {
             shortTitle: "Generate plan",
             systemImageName: "sparkles"
         )
+        // Use phrases that are app-specific (start with "DayPlanner") so
+        // macOS Siri doesn't preempt with its built-in "morning routine"
+        // / Reminders / Calendar handler. Plus user can always invoke via
+        // a user-created Shortcut in Shortcuts.app.
         AppShortcut(
             intent: MorningRoutineIntent(),
             phrases: [
-                "Run my morning routine in \(.applicationName)",
-                "Start my morning routine in \(.applicationName)",
-                "Start my morning in \(.applicationName)",
-                "It's morning in \(.applicationName)",
-                "Good morning \(.applicationName)",
-                "Wake me up in \(.applicationName)",
-                "Show me my morning in \(.applicationName)",
-                "Show me what you're going to do in \(.applicationName)",
+                "\(.applicationName) morning routine",
+                "\(.applicationName) good morning",
+                "\(.applicationName) start my day",
+                "\(.applicationName) plan my morning",
+                "\(.applicationName) brief me",
+                "Run \(.applicationName) morning routine",
+                "Run my \(.applicationName) routine",
+                "Run \(.applicationName)",
+                "Start my day in \(.applicationName)",
+                "Brief me in \(.applicationName)",
             ],
             shortTitle: "Morning routine",
             systemImageName: "sunrise.fill"
