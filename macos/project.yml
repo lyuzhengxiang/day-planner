@@ -12,8 +12,13 @@ settings:
     SWIFT_VERSION: "5.9"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""           # Fill in via Xcode signing tab on first open
-    CODE_SIGN_STYLE: Automatic
+    # Signed with Developer ID Application so the system fully indexes
+    # App Intents (Siri / Spotlight only properly route to a Developer-
+    # ID-signed bundle, not an ad-hoc one). Override via Xcode signing
+    # tab when building on another machine.
+    DEVELOPMENT_TEAM: NJ4J626ZPF
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "Developer ID Application"
     ENABLE_HARDENED_RUNTIME: YES
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
