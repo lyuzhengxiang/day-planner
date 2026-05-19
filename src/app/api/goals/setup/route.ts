@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOpenAI } from "@/lib/openai";
+import {
+  PROMPT_LIMITS,
+  PROMPT_SAFETY_PREAMBLE,
+  sanitizeUserText,
+  wrapUserBlock,
+} from "@/lib/prompt-safety";
 
 export async function POST(req: NextRequest) {
   const { input } = await req.json();
   const isVoice = req.headers.get("accept") === "text/plain";
   const openai = getOpenAI();
+
+  // SECURITY: bound the user-supplied initial input before it reaches OpenAI.
+  const safeInput = sanitizeUserText(input, PROMPT_LIMITS.initialInput);
+  if (safeInput.length === 0) {
+    return NextResponse.json(
+      { error: "input is required" },
+      { status: 400 }
+    );
+  }
 
   const existingGoals = await prisma.weeklyGoal.findMany({
     where: { active: true },
@@ -14,7 +29,10 @@ export async function POST(req: NextRequest) {
 
   const existingContext =
     existingGoals.length > 0
-      ? `Previous goals: ${existingGoals.map((g) => g.text).join(", ")}`
+      ? wrapUserBlock(
+          "existing-goals",
+          existingGoals.map((g) => sanitizeUserText(g.text)).join(", ")
+        )
       : "No previous goals";
 
   const completion = await openai.chat.completions.create({
@@ -22,7 +40,9 @@ export async function POST(req: NextRequest) {
     messages: [
       {
         role: "system",
-        content: `You are a weekly goal-setting assistant. The user gives brief input about their focus. Generate the FIRST of 5-6 multiple-choice questions to understand their goals better. Each question should have 5-6 numbered options plus "Other".
+        content: `You are a weekly goal-setting assistant. ${PROMPT_SAFETY_PREAMBLE}
+
+The user gives brief input about their focus. Generate the FIRST of 5-6 multiple-choice questions to understand their goals better. Each question should have 5-6 numbered options plus "Other".
 
 ${existingContext}
 
@@ -32,7 +52,7 @@ Respond with ONLY valid JSON:
   "options": ["Getting new users", "Building features", "Revenue/monetization", "Content/marketing", "Operations/admin", "Other (type your own)"]
 }`,
       },
-      { role: "user", content: input },
+      { role: "user", content: wrapUserBlock("user-input", safeInput) },
     ],
     response_format: { type: "json_object" },
   });
@@ -43,7 +63,7 @@ Respond with ONLY valid JSON:
 
   const session = await prisma.goalSession.create({
     data: {
-      initialInput: input,
+      initialInput: safeInput,
       questions: JSON.stringify([
         {
           question: firstQuestion.question,

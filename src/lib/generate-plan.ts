@@ -7,6 +7,15 @@ import { exportDayMarkdown } from "@/lib/markdown";
 import { notify } from "@/lib/notifications";
 import { startOfDay } from "date-fns";
 import { buildAppUrl, getEventsForDate } from "@/lib/planner";
+import {
+  PROMPT_LIMITS,
+  PROMPT_SAFETY_PREAMBLE,
+  sanitizeUserText,
+  wrapUserBlock,
+} from "@/lib/prompt-safety";
+import { logger } from "@/lib/logger";
+
+const log = logger("generate-plan");
 
 export async function generateDailyPlan() {
   const today = startOfDay(new Date());
@@ -39,46 +48,45 @@ export async function generateDailyPlan() {
 
   const todaysEvents = getEventsForDate(recurringEvents, today);
 
-  const goalsText = weeklyGoals
-    .map((g) => `- [${g.priority}] ${g.text} (id: ${g.id})`)
-    .join("\n");
+  // SECURITY: every user-controlled field is sanitized before being
+  // concatenated into the prompt, and the resulting content is wrapped in
+  // delimited blocks. See src/lib/prompt-safety.ts.
+  const goalsLines = weeklyGoals.map(
+    (g) => `- [${g.priority}] ${sanitizeUserText(g.text)} (id: ${g.id})`
+  );
+  const goalsBlock = wrapUserBlock(
+    "weekly-goals",
+    goalsLines.length > 0 ? goalsLines.join("\n") : "No weekly goals set"
+  );
 
-  const rolledText =
-    rolledTasks.length > 0
-      ? rolledTasks
-          .map(
-            (t) =>
-              `- "${t.text}" (urgency: ${t.urgency}, rolled ${t.rolledDays} days)`
-          )
-          .join("\n")
-      : "None";
+  const rolledLines = rolledTasks.map(
+    (t) =>
+      `- "${sanitizeUserText(t.text)}" (urgency: ${t.urgency}, rolled ${t.rolledDays} days)`
+  );
+  const rolledBlock = wrapUserBlock(
+    "rolled-tasks",
+    rolledLines.length > 0 ? rolledLines.join("\n") : "None"
+  );
 
-  const scheduleText =
-    todaysEvents.length > 0
-      ? todaysEvents
-          .map((e) => `- ${e.startTime}-${e.endTime}: ${e.title}`)
-          .join("\n")
-      : "No recurring events today";
+  const scheduleLines = todaysEvents.map(
+    (e) =>
+      `- ${e.startTime}-${e.endTime}: ${sanitizeUserText(e.title, PROMPT_LIMITS.title)}`
+  );
+  const scheduleBlock = wrapUserBlock(
+    "schedule",
+    scheduleLines.length > 0 ? scheduleLines.join("\n") : "No recurring events today"
+  );
 
-  const prompt = `You are a proactive daily planner. Generate today's tasks based on the user's weekly goals, carried-over tasks, and schedule.
-
-Weekly Goals:
-${goalsText || "No weekly goals set"}
-
-Carried-over tasks (incomplete from previous days):
-${rolledText}
-
-Today's fixed schedule:
-${scheduleText}
+  const systemPrompt = `You are a proactive daily planner. ${PROMPT_SAFETY_PREAMBLE}
 
 Rules:
-- Generate 3-7 tasks total (including carried-over tasks)
-- Carried-over tasks should be included with bumped urgency
-- If a task has rolled 3+ days, flag it explicitly
-- Assign urgency: URGENT, HIGH, MEDIUM, or LOW
-- Each task should link to a weeklyGoalId if applicable (null if ad-hoc)
-- Schedule tasks around fixed events
-- Be specific and actionable
+- Generate 3-7 tasks total (including carried-over tasks).
+- Carried-over tasks should be included with bumped urgency.
+- If a task has rolled 3+ days, flag it explicitly.
+- Assign urgency: URGENT, HIGH, MEDIUM, or LOW.
+- Each task should link to a weeklyGoalId if applicable (null if ad-hoc).
+- Schedule tasks around fixed events.
+- Be specific and actionable.
 
 Respond with ONLY valid JSON:
 {
@@ -87,18 +95,24 @@ Respond with ONLY valid JSON:
   ]
 }`;
 
+  const userPrompt = [goalsBlock, rolledBlock, scheduleBlock].join("\n\n");
+
   // Retry with exponential backoff (up to 3 attempts)
   let completion;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       completion = await openai.chat.completions.create({
         model: "gpt-5.4",
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
         response_format: { type: "json_object" },
         temperature: 0.7,
       });
       break;
     } catch (err) {
+      log.warn("openai chat.completions failed", { attempt, error: String(err) });
       if (attempt === 2) throw err;
       await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
     }
