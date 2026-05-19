@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, change-to-xcode]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  next:
+    name: Next.js — lint / test / build / audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Test
+        run: npm test
+        env:
+          DATABASE_URL: "file:./prisma/dev.db"
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: "file:./prisma/dev.db"
+          # Build must succeed without real API keys — see src/lib/openai.ts.
+          OPENAI_API_KEY: ""
+          WEATHER_API_KEY: ""
+          RESEND_API_KEY: ""
+
+      - name: Supply-chain audit (high+ severity)
+        # Warn-only for v3: surfaces advisories without blocking merge.
+        run: npm audit --audit-level=high
+        continue-on-error: true
