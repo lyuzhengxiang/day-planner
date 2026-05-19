@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App is NOT sandboxed in v1 — required to:
+         - send AppleEvents to Messages.app (iMessage delivery)
+         - read/write SQLite outside ~/Library/Containers
+         If we later submit to Mac App Store, we'll need:
+           com.apple.security.app-sandbox = true
+           com.apple.security.temporary-exception.apple-events for Messages
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!-- Hardened Runtime — allow Apple events for AppleScript -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+
+    <!-- Outbound network for OpenAI, WeatherAPI, Resend -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>
