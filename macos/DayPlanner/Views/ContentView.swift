@@ -44,9 +44,9 @@ struct ContentView: View {
         } detail: {
             switch selection {
             case .today:    TodayView()
-            case .week:     ComingSoonView(title: "Weekly Goals")
-            case .history:  ComingSoonView(title: "History")
-            case .review:   ComingSoonView(title: "Reflection")
+            case .week:     WeekView()
+            case .history:  HistoryView()
+            case .review:   ReviewView()
             case .settings: ComingSoonView(title: "Settings")
             }
         }
