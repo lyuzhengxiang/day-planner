@@ -19,4 +19,7 @@ public enum AppLog {
     public static let weather = Logger(subsystem: subsystem, category: "weather")
     public static let appleScript = Logger(subsystem: subsystem, category: "applescript")
     public static let data = Logger(subsystem: subsystem, category: "data-controller")
+    public static let scheduler = Logger(subsystem: subsystem, category: "scheduler")
+    public static let intent = Logger(subsystem: subsystem, category: "app-intent")
+    public static let ui = Logger(subsystem: subsystem, category: "ui")
 }

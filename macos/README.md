@@ -81,6 +81,34 @@ xcodebuild test \
   -destination "platform=macOS"
 ```
 
+## Background scheduling
+
+`Services/Scheduler.swift` mirrors the four jobs from `src/lib/cron.ts`:
+
+| Fire time                | Job                              |
+|--------------------------|----------------------------------|
+| `Settings.morningTime`   | Generate today's plan + notify   |
+| `Settings.middayTime`    | Midday nudge (only if <50% done) |
+| `Settings.eveningTime`   | Evening wrap-up (open tasks)     |
+| Sunday 18:00 (timezone)  | Weekly reflection + notify       |
+
+These timers run in-process. For them to fire when you're not actively
+using the app, install the LaunchAgent so macOS keeps the app open:
+
+```sh
+# After copying DayPlanner.app to /Applications:
+./scripts/install-agent.sh
+
+# Or pass an explicit path:
+./scripts/install-agent.sh /path/to/DayPlanner.app
+
+# To remove:
+./scripts/uninstall-agent.sh
+```
+
+To temporarily disable scheduling (useful in tests), launch with
+`DISABLE_DAY_PLANNER_CRON=true` in the environment.
+
 ## Distribution
 
 v1 ships as a notarized DMG (no App Store). See `docs/distribution.md` (TBD) once we're closer to release.

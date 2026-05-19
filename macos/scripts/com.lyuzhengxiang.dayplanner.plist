@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LaunchAgent template for DayPlanner.
+
+  install-agent.sh expands these placeholders and copies the result to
+  ~/Library/LaunchAgents/com.lyuzhengxiang.dayplanner.plist:
+    {{APP_PATH}}  — absolute path to DayPlanner.app (e.g. /Applications/DayPlanner.app)
+
+  launchd then opens the app at login and re-launches it if it crashes,
+  keeping the in-process Scheduler timers alive without requiring the user
+  to keep the app open manually.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lyuzhengxiang.dayplanner</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/open</string>
+        <string>-W</string>
+        <string>-a</string>
+        <string>{{APP_PATH}}</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/dayplanner.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/dayplanner.err.log</string>
+</dict>
+</plist>
