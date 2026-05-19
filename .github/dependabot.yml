@@ -32,3 +32,16 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  # Swift Package Manager — covers MacPaw/OpenAI and any future Swift deps
+  # added on the change-to-xcode branch.
+  - package-ecosystem: "swift"
+    directory: "/macos"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    target-branch: "change-to-xcode"
+    labels:
+      - "dependencies"
+      - "swift"
+      - "supply-chain"

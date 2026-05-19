@@ -44,7 +44,7 @@ public final class DataController {
                 isStoredInMemoryOnly: true
             )
             container = try! ModelContainer(for: schema, configurations: [memoryConfig])
-            print("[DataController] On-disk store failed (\(error)); falling back to in-memory store.")
+            AppLog.data.error("On-disk store failed: \(String(describing: error), privacy: .public); falling back to in-memory store.")
         }
 
         Seeder.seedIfNeeded(container: container)

@@ -13,7 +13,8 @@ public final class OpenAIService: LLMService {
     }
 
     public func complete(
-        prompt: String,
+        systemPrompt: String?,
+        userPrompt: String,
         jsonMode: Bool,
         temperature: Double
     ) async throws -> String {
@@ -22,9 +23,12 @@ public final class OpenAIService: LLMService {
         }
 
         let openAI = OpenAI(apiToken: apiKey)
-        let messages: [ChatQuery.ChatCompletionMessageParam] = [
-            .user(.init(content: .string(prompt)))
-        ]
+        var messages: [ChatQuery.ChatCompletionMessageParam] = []
+        if let system = systemPrompt, !system.isEmpty {
+            messages.append(.system(.init(content: .textContent(system))))
+        }
+        messages.append(.user(.init(content: .string(userPrompt))))
+
         let query = ChatQuery(
             messages: messages,
             model: .init(modelName),
@@ -44,6 +48,9 @@ public final class OpenAIService: LLMService {
                 return content
             } catch {
                 lastError = error
+                AppLog.openai.warning(
+                    "chat.completions failed (attempt \(attempt + 1, privacy: .public)): \(String(describing: error), privacy: .public)"
+                )
                 attempt += 1
                 if attempt < maxRetries {
                     let backoffNS = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000

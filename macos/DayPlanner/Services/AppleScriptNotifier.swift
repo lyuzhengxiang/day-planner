@@ -36,10 +36,10 @@ public struct AppleScriptNotifier: Sendable {
             }
             let data = stderr.fileHandleForReading.readDataToEndOfFile()
             let errString = String(data: data, encoding: .utf8) ?? ""
-            print("[AppleScriptNotifier] osascript exit \(process.terminationStatus): \(errString)")
+            AppLog.appleScript.error("osascript exit \(process.terminationStatus, privacy: .public): \(errString, privacy: .public)")
             return false
         } catch {
-            print("[AppleScriptNotifier] failed to launch osascript: \(error)")
+            AppLog.appleScript.error("failed to launch osascript: \(String(describing: error), privacy: .public)")
             return false
         }
     }

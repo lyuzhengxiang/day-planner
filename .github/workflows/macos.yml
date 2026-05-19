@@ -1,0 +1,62 @@
+name: macOS
+
+# Only runs on the active rewrite branch. main is Next.js territory.
+on:
+  push:
+    branches: [change-to-xcode]
+  pull_request:
+    branches: [change-to-xcode]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: xcodebuild test
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || true
+
+      - name: Show xcodebuild version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Verify Package.resolved is in sync
+        # The committed macos/Package.resolved is the pinned snapshot — fail
+        # CI loudly if a developer forgets to sync after bumping deps.
+        run: |
+          GENERATED="DayPlanner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+          if ! diff -q "$GENERATED" Package.resolved > /dev/null 2>&1; then
+            echo "::error::macos/Package.resolved is out of sync with the generated lockfile."
+            echo "Run: cp $GENERATED macos/Package.resolved && git add macos/Package.resolved"
+            diff "$GENERATED" Package.resolved || true
+            exit 1
+          fi
+
+      - name: Resolve SwiftPM packages
+        run: xcodebuild -resolvePackageDependencies -project DayPlanner.xcodeproj -scheme DayPlanner
+
+      - name: Build & test
+        run: |
+          xcodebuild test \
+            -project DayPlanner.xcodeproj \
+            -scheme DayPlanner \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+          xcodebuild test \
+            -project DayPlanner.xcodeproj \
+            -scheme DayPlanner \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO

@@ -38,7 +38,7 @@ public struct EmailNotifier: Sendable {
             }
             return false
         } catch {
-            print("[EmailNotifier] request failed: \(error)")
+            AppLog.notification.error("Resend request failed: \(String(describing: error), privacy: .public)")
             return false
         }
     }

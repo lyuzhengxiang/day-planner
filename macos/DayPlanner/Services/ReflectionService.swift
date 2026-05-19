@@ -51,15 +51,39 @@ public final class ReflectionService {
 
         let incompleteTaskTexts = allTasks.filter { !$0.completed }.map(\.text)
 
-        // Ask the LLM for an encouraging summary.
-        let userMessage = """
-        Completed \(tasksCompleted)/\(tasksTotal) tasks. \
-        Goals: \(Self.encodeJSON(goalsBreakdown) ?? "[]"). \
-        Incomplete: \(incompleteTaskTexts.isEmpty ? "None" : incompleteTaskTexts.joined(separator: ", "))
-        """
-        let systemPrefix = "Write a brief, encouraging weekly reflection (2-3 sentences). Be honest about what didn't get done but focus on progress.\n\n"
+        // SECURITY: sanitize goalText + incomplete-task texts before they hit
+        // the prompt. Mirrors the Next.js src/lib/reflection.ts patch.
+        let safeBreakdown = goalsBreakdown.map { entry in
+            GoalBreakdownEntry(
+                goalId: entry.goalId,
+                goalText: PromptSafety.sanitize(entry.goalText),
+                tasksCompleted: entry.tasksCompleted,
+                tasksTotal: entry.tasksTotal
+            )
+        }
+        let safeIncomplete = incompleteTaskTexts
+            .map { PromptSafety.sanitize($0) }
+            .filter { !$0.isEmpty }
+
+        let breakdownJSON = (Self.encodeJSON(safeBreakdown) ?? "[]")
+            .prefix(PromptSafety.Limits.totalUserBlock)
+        let userBlock = PromptSafety.wrap(
+            label: "weekly-stats",
+            body: [
+                "Completed \(tasksCompleted)/\(tasksTotal) tasks.",
+                "Goals: \(breakdownJSON)",
+                "Incomplete: \(safeIncomplete.isEmpty ? "None" : safeIncomplete.joined(separator: ", "))",
+            ].joined(separator: "\n")
+        )
+
+        let systemPrompt =
+            "Write a brief, encouraging weekly reflection (2-3 sentences). " +
+            "Be honest about what didn't get done but focus on progress. " +
+            PromptSafety.PREAMBLE
+
         let summary = (try? await llm.complete(
-            prompt: systemPrefix + userMessage,
+            systemPrompt: systemPrompt,
+            userPrompt: userBlock,
             jsonMode: false,
             temperature: 0.7
         )) ?? ""

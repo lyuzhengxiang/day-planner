@@ -13,7 +13,10 @@ DerivedData/
 .swiftpm/
 .build/
 Packages/
-Package.resolved
+# Ignore the generated lockfile inside the gitignored .xcodeproj. We commit
+# a copy at macos/Package.resolved (root of this dir) for supply-chain pinning.
+**/Package.resolved
+!/Package.resolved
 
 # Build products
 build/
