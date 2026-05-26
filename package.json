@@ -10,12 +10,12 @@
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.8.0",
     "date-fns": "^4.1.0",
     "next": "16.2.6",
     "node-cron": "^4.2.1",
     "openai": "^6.33.0",
-    "prisma": "^6.19.3",
+    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.10.0"
